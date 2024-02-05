@@ -56,12 +56,13 @@ class Gumbel_Sample_Model(torch.nn.Module):
 
     def forward(self):
         one_hot = self._get_weights(self.log_alpha)
-        re_tensor =  one_hot*self.indices
-        re = torch.sum(re_tensor, dim=1)
-        long_like_re = FloatToLongSTE.apply(re)
+        # re_tensor =  one_hot*self.indices
+        # re = torch.sum(re_tensor, dim=1)
+        # long_like_re = FloatToLongSTE.apply(re)
         # long_like_re = STEFunction.apply(one_hot)
-        return long_like_re
+        # return long_like_re
         # return re
+        return one_hot
 
 class Search_Model(torch.nn.Module):
     def __init__(self, surrogate_model, Gumbel_Sample_Model):

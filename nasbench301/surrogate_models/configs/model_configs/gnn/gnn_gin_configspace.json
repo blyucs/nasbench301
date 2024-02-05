@@ -110,7 +110,7 @@
     {
       "name": "epochs",
       "type": "constant",
-      "value": 16
+      "value": 6
     }
   ],
   "conditions": [],

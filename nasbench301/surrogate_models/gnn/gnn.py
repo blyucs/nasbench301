@@ -188,8 +188,8 @@ class GNNSurrogateModel(SurrogateModel):
             else:
                 # x, edge_index, edge_attr, batch = graph_batch.x.long(), graph_batch.edge_index, graph_batch.edge_attr.long(), graph_batch.batch
                 x, edge_index, batch = graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
-                # edge_attr = torch.nn.functional.one_hot(graph_batch.edge_attr)
-                edge_attr = graph_batch.edge_attr
+                edge_attr = torch.nn.functional.one_hot(graph_batch.edge_attr).float()
+                # edge_attr = graph_batch.edge_attr
                 # pred = self.model(x, edge_index, edge_attr, batch)
                 pred = self.model(x, edge_index, edge_attr, batch)
                 if self.model_config['loss:loss_log_transform']:
@@ -245,7 +245,8 @@ class GNNSurrogateModel(SurrogateModel):
         for step, graph_batch in enumerate(valid_queue):
             graph_batch = graph_batch.to(self.device)
             x, edge_index, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
-            edge_attr= torch.nn.functional.one_hot(graph_batch.edge_attr)
+            # edge_attr = graph_batch.edge_attr
+            edge_attr= torch.nn.functional.one_hot(graph_batch.edge_attr).float()
             if self.model_config['model'] == 'gnn_vs_gae_classifier':
                 pred_bins, pred = self.model(graph_batch=graph_batch)
                 criterion = torch.nn.BCELoss()
@@ -296,8 +297,10 @@ class GNNSurrogateModel(SurrogateModel):
         test_queue = self.load_results_from_result_paths(self.test_paths)
         for step, graph_batch in enumerate(test_queue):
             graph_batch = graph_batch.to(self.device)
-            x, edge_index, edge_attr, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.edge_attr.long(), graph_batch.batch
-
+            # x, edge_index, edge_attr, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.edge_attr.long(), graph_batch.batch
+            x, edge_index, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
+            # edge_attr = graph_batch.edge_attr
+            edge_attr= torch.nn.functional.one_hot(graph_batch.edge_attr).float()
             if self.model_config['model'] == 'gnn_vs_gae_classifier':
                 pred_bins, pred = self.model(graph_batch=graph_batch)
             else:
@@ -322,8 +325,10 @@ class GNNSurrogateModel(SurrogateModel):
         valid_queue = self.load_results_from_result_paths(self.val_paths)
         for step, graph_batch in enumerate(valid_queue):
             graph_batch = graph_batch.to(self.device)
-
-            pred = self.model(graph_batch=graph_batch)
+            x, edge_index, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
+            # edge_attr = graph_batch.edge_attr
+            edge_attr= torch.nn.functional.one_hot(graph_batch.edge_attr).float()
+            pred = self.model(x, edge_index, edge_attr, batch)
             preds.extend(pred.detach().cpu().numpy() * 100)
             targets.extend(graph_batch.y.detach().cpu().numpy())
 

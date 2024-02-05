@@ -20,8 +20,12 @@ class GINConv(MessagePassing):
                                        torch.nn.ReLU(), torch.nn.Linear(2 * emb_dim, emb_dim))
         self.eps = torch.nn.Parameter(torch.Tensor([0]))
 
-        self.edge_encoder = torch.nn.Embedding(len(OP_PRIMITIVES), emb_dim)
-        # self.edge_encoder  = torch.nn.Sequential(torch.nn.Linear(len(OP_PRIMITIVES), emb_dim))
+        # self.edge_encoder_test = torch.nn.Embedding(len(OP_PRIMITIVES), emb_dim)
+        self.edge_encoder  = torch.nn.Sequential(torch.nn.Linear(len(OP_PRIMITIVES), emb_dim))
+        for module in self.edge_encoder.children():
+            torch.nn.init.normal_(module.weight, mean=0, std=1)
+            torch.nn.init.normal_(module.bias, mean=0, std=1)
+
     def forward(self, x, edge_index, edge_attr):
         edge_embedding = self.edge_encoder(edge_attr).squeeze()
         out = self.mlp((1 + self.eps) * x + self.propagate(edge_index, x=x, edge_attr=edge_embedding))
