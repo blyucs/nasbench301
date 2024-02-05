@@ -45,7 +45,8 @@ class BANANASModel(SurrogateModel):
             raise NotImplementedError('Unknown loss function used.')
         '''
         # Create early stopper
-        early_stopper = Patience(patience=20, use_loss=True)
+        # early_stopper = Patience(patience=20, use_loss=True)
+        early_stopper = Patience(patience=100, use_loss=True)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.model_config['learning_rate'])
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(

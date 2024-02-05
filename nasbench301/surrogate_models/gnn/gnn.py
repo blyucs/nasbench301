@@ -29,6 +29,7 @@ class GNNSurrogateModel(SurrogateModel):
                                                 model_config=model_config, data_config=data_config)
 
         self.device = torch.device('cpu')
+        # self.device = torch.device('cuda')
 
         # NOTE: Updated to use an absolute path so it works installed as a
         #       package.
@@ -185,7 +186,12 @@ class GNNSurrogateModel(SurrogateModel):
                 loss = alpha * loss_1 + beta * loss_2
 
             else:
-                pred = self.model(graph_batch=graph_batch)
+                # x, edge_index, edge_attr, batch = graph_batch.x.long(), graph_batch.edge_index, graph_batch.edge_attr.long(), graph_batch.batch
+                x, edge_index, batch = graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
+                # edge_attr = torch.nn.functional.one_hot(graph_batch.edge_attr)
+                edge_attr = graph_batch.edge_attr
+                # pred = self.model(x, edge_index, edge_attr, batch)
+                pred = self.model(x, edge_index, edge_attr, batch)
                 if self.model_config['loss:loss_log_transform']:
                     loss = criterion(self.normalize_data(pred), self.normalize_data(graph_batch.y / 100))
                 else:
@@ -238,7 +244,8 @@ class GNNSurrogateModel(SurrogateModel):
         model.eval()
         for step, graph_batch in enumerate(valid_queue):
             graph_batch = graph_batch.to(self.device)
-
+            x, edge_index, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.batch
+            edge_attr= torch.nn.functional.one_hot(graph_batch.edge_attr)
             if self.model_config['model'] == 'gnn_vs_gae_classifier':
                 pred_bins, pred = self.model(graph_batch=graph_batch)
                 criterion = torch.nn.BCELoss()
@@ -262,7 +269,7 @@ class GNNSurrogateModel(SurrogateModel):
 
                 loss = alpha * loss_1 + beta * loss_2
             else:
-                pred = self.model(graph_batch=graph_batch)
+                pred = self.model(x, edge_index, edge_attr, batch)
                 loss = criterion(self.normalize_data(pred), self.normalize_data(graph_batch.y / 100))
 
             preds.extend(pred.detach().cpu().numpy() * 100)
@@ -289,13 +296,12 @@ class GNNSurrogateModel(SurrogateModel):
         test_queue = self.load_results_from_result_paths(self.test_paths)
         for step, graph_batch in enumerate(test_queue):
             graph_batch = graph_batch.to(self.device)
+            x, edge_index, edge_attr, batch= graph_batch.x.long(), graph_batch.edge_index, graph_batch.edge_attr.long(), graph_batch.batch
 
             if self.model_config['model'] == 'gnn_vs_gae_classifier':
                 pred_bins, pred = self.model(graph_batch=graph_batch)
-
             else:
-                pred = self.model(graph_batch=graph_batch)
-
+                pred = self.model(x, edge_index, edge_attr, batch)
             preds.extend(pred.detach().cpu().numpy() * 100)
             targets.extend(graph_batch.y.detach().cpu().numpy())
 

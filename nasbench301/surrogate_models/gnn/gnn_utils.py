@@ -193,12 +193,12 @@ class NASBenchDataset(InMemoryDataset):
             node_degree = utils.degree(rows.long(), len(node_index)).view(-1, 1)
             node_embeddings_concat_list.append(node_degree.long())
 
-        if self.model_config['graph_preprocessing:self_loops']:
-            edge_index, edge_attr = utils.add_remaining_self_loops(edge_index=edge_index.long(),
-                                                                   edge_weight=edge_attr.squeeze(),
-                                                                   fill_value=OP_PRIMITIVES.index('identity'))
-            edge_attr = edge_attr.reshape(-1, 1)
-            edge_index = edge_index.long()
+        # if self.model_config['graph_preprocessing:self_loops']:
+        #     edge_index, edge_attr = utils.add_remaining_self_loops(edge_index=edge_index.long(),
+        #                                                            edge_weight=edge_attr.squeeze(),
+        #                                                            fill_value=OP_PRIMITIVES.index('identity'))
+        #     edge_attr = edge_attr.reshape(-1, 1)
+        #     edge_index = edge_index.long()
 
         if self.model_config['graph_preprocessing:undirected_graph']:
             edge_index, edge_attr = to_undirected(edge_index, edge_attr)

@@ -21,7 +21,7 @@ class GINConv(MessagePassing):
         self.eps = torch.nn.Parameter(torch.Tensor([0]))
 
         self.edge_encoder = torch.nn.Embedding(len(OP_PRIMITIVES), emb_dim)
-
+        # self.edge_encoder  = torch.nn.Sequential(torch.nn.Linear(len(OP_PRIMITIVES), emb_dim))
     def forward(self, x, edge_index, edge_attr):
         edge_embedding = self.edge_encoder(edge_attr).squeeze()
         out = self.mlp((1 + self.eps) * x + self.propagate(edge_index, x=x, edge_attr=edge_embedding))
@@ -45,6 +45,7 @@ class GCNConv(MessagePassing):
 
         # edge_attr is two dimensional after augment_edge transformation
         self.edge_encoder = torch.nn.Linear(2, emb_dim)
+        # self.edge_encoder = torch.nn.Linear(1, emb_dim)
 
     def forward(self, x, edge_index, edge_attr):
         x = self.linear(x)
@@ -109,8 +110,10 @@ class GNN_node(torch.nn.Module):
 
             self.batch_norms.append(torch.nn.BatchNorm1d(emb_dim))
 
-    def forward(self, batched_data):
-        x, edge_index, edge_attr, node_depth, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.node_depth, batched_data.batch
+    # def forward(self, batched_data):
+    def forward(self, x, edge_index, edge_attr,node_depth, batch):
+
+        # x, edge_index, edge_attr, node_depth, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.node_depth, batched_data.batch
 
         ### computing input node embedding
 
@@ -168,6 +171,7 @@ class GNN_node_Virtualnode(torch.nn.Module):
 
         ### set the initial virtual node embedding to 0.
         self.virtualnode_embedding = torch.nn.Embedding(1, emb_dim)
+        # self.virtualnode_embedding =torch.nn.Linear(8, emb_dim)
         torch.nn.init.constant_(self.virtualnode_embedding.weight.data, 0)
 
         ### List of GNNs
@@ -195,10 +199,9 @@ class GNN_node_Virtualnode(torch.nn.Module):
                                     torch.nn.Linear(2 * emb_dim, emb_dim), torch.nn.BatchNorm1d(emb_dim),
                                     torch.nn.ReLU()))
 
-    def forward(self, batched_data):
-
-        x, edge_index, edge_attr, batch = batched_data.x.long(), batched_data.edge_index, batched_data.edge_attr.long(), batched_data.batch
-
+    # def forward(self, batched_data,):
+    def forward(self, x, edge_index, edge_attr, batch ):
+        # x, edge_index, edge_attr, batch = batched_data.x.long(), batched_data.edge_index, batched_data.edge_attr.long(), batched_data.batch
         ### virtual node embeddings for graphs
         virtualnode_embedding = self.virtualnode_embedding(
             torch.zeros(batch[-1].item() + 1).to(edge_index.dtype).to(edge_index.device))

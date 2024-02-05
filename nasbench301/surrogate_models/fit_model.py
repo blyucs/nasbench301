@@ -30,7 +30,7 @@ def train_surrogate_model(model, nasbench_data, model_config_path, data_config_p
     data_config = json.load(open(data_config_path, 'r'))
 
     # Create log directory
-    log_dir = os.path.join(log_dir, model, '{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), seed))
+    log_dir = os.path.join(log_dir, model, 'train-{}-{}'.format(time.strftime("%Y%m%d-%H%M%S"), seed))
     os.makedirs(log_dir)
 
     # Select model config to use

@@ -59,7 +59,7 @@
       "name": "virtual_node",
       "type": "categorical",
       "choices": [
-        true
+         true
       ],
       "default": true
     },
@@ -110,7 +110,7 @@
     {
       "name": "epochs",
       "type": "constant",
-      "value": 128
+      "value": 16
     }
   ],
   "conditions": [],
