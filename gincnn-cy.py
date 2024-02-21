@@ -3,7 +3,6 @@ from torch_geometric.nn import global_add_pool, global_mean_pool, global_max_poo
 
 from nasbench301.surrogate_models.gnn.gnn_utils import NODE_PRIMITIVES
 from nasbench301.surrogate_models.gnn.models.conv import GNN_node_Virtualnode, GNN_node
-import torch.nn as nn
 from torch_geometric import utils
 
 class NodeEncoder(torch.nn.Module):
@@ -23,16 +22,16 @@ class NodeEncoder(torch.nn.Module):
         self.type_encoder = torch.nn.Embedding(num_nodetypes, emb_dim)
         self.attribute_encoder = torch.nn.Embedding(num_nodeattributes, emb_dim)
 
-    # def forward(self, x):
-    def forward(self, x, edge_index):
+    # def forward(self, x, edge_index):
+    def forward(self, x):
         # return self.type_encoder(x[:, 0]) + self.attribute_encoder(x[:, 1])
-        # return self.type_encoder(x[:, 0])
-        # return self.attribute_encoder(x[:, 1])
         # sep
-        rows, cols = utils.to_undirected(edge_index.long())
-        node_degree = utils.degree(rows.long(), len(x[:, 0])).view(-1, 1).long()
-        return self.type_encoder(x[:, 0]) + self.attribute_encoder(node_degree[:,0])
-
+        # rows, cols = utils.to_undirected(edge_index.long())
+        # node_degree = utils.degree(rows.long(), len(x[:, 0])).view(-1, 1).long()
+        # return self.type_encoder(x[:, 0]) + self.attribute_encoder(node_degree[:,0])
+        # test node type and node degree
+        return self.type_encoder(x[:, 0])
+        # return self.attribute_encoder(x[:, 1])
 
 class GIN(torch.nn.Module):
 
@@ -52,7 +51,7 @@ class GIN(torch.nn.Module):
             self.gnn_node = GNN_node(num_layer=model_config['num_gnn_layers'],
                                      emb_dim=model_config['gnn_hidden_dimensions'],
                                      JK=JK, drop_ratio=model_config['dropout_prob'], residual=False,
-                                     gnn_type='gcn', node_encoder=self.node_encoder)
+                                     gnn_type='gin', node_encoder=self.node_encoder)
         if model_config['graph_pooling'] == "sum":
             self.pool = global_add_pool
         elif model_config['graph_pooling'] == "mean":
@@ -63,7 +62,7 @@ class GIN(torch.nn.Module):
             self.pool = GlobalAttention(
                 gate_nn=torch.nn.Sequential(
                     torch.nn.Linear(model_config['gnn_hidden_dimensions'], 2 * model_config['gnn_hidden_dimensions']),
-                    torch.nn.BatchNorm1d(2 * model_config['gnn_hidden_dimensions']),
+                    torch.nn.LayerNorm(2 * model_config['gnn_hidden_dimensions']),
                     torch.nn.ReLU(), torch.nn.Linear(2 * model_config['gnn_hidden_dimensions'], 1)))
         elif model_config['graph_pooling'] == "set2set":
             self.pool = Set2Set(model_config['gnn_hidden_dimensions'], processing_steps=2)
@@ -74,12 +73,12 @@ class GIN(torch.nn.Module):
 
         self.graph_pred_linear = torch.nn.Linear(model_config['gnn_hidden_dimensions'], 1)
 
-    def forward(self, x, edge_index, edge_attr, batch):
+    def forward(self, graph_batch):
         # Implement Equation 4.2 of the paper i.e. concat all layers' graph representations and apply linear model
         # note: this can be decomposed in one smaller linear model per layer
 
-        h_node = self.gnn_node(x, edge_index, edge_attr, batch)
+        h_node = self.gnn_node(graph_batch)
 
-        h_graph = self.pool(h_node, batch)
+        h_graph = self.pool(h_node, graph_batch.batch)
         graph_output = self.graph_pred_linear(h_graph)
         return torch.sigmoid(graph_output.view(-1))

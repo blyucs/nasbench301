@@ -188,6 +188,7 @@ class NASBenchDataset(InMemoryDataset):
                    [6, 7, 8, 0, 1]]])
 
         if self.model_config['graph_preprocessing:add_node_degree_one_hot']:
+        # if False:
             # Compute node degrees and represent as one-hot vector
             rows, cols = utils.to_undirected(edge_index.long())
             node_degree = utils.degree(rows.long(), len(node_index)).view(-1, 1)

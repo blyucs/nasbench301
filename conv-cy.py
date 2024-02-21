@@ -16,15 +16,11 @@ class GINConv(MessagePassing):
 
         super(GINConv, self).__init__(aggr="add")
 
-        self.mlp = torch.nn.Sequential(torch.nn.Linear(emb_dim, 2 * emb_dim), torch.nn.BatchNorm1d(2 * emb_dim),
+        self.mlp = torch.nn.Sequential(torch.nn.Linear(emb_dim, 2 * emb_dim), torch.nn.LayerNorm(2 * emb_dim),
                                        torch.nn.ReLU(), torch.nn.Linear(2 * emb_dim, emb_dim))
         self.eps = torch.nn.Parameter(torch.Tensor([0]))
 
-        # self.edge_encoder_test = torch.nn.Embedding(len(OP_PRIMITIVES), emb_dim)
-        self.edge_encoder  = torch.nn.Sequential(torch.nn.Linear(len(OP_PRIMITIVES), emb_dim))
-        for module in self.edge_encoder.children():
-            torch.nn.init.normal_(module.weight, mean=0, std=1)
-            torch.nn.init.normal_(module.bias, mean=0, std=1)
+        self.edge_encoder = torch.nn.Embedding(len(OP_PRIMITIVES), emb_dim)
 
     def forward(self, x, edge_index, edge_attr):
         edge_embedding = self.edge_encoder(edge_attr).squeeze()
@@ -49,7 +45,6 @@ class GCNConv(MessagePassing):
 
         # edge_attr is two dimensional after augment_edge transformation
         self.edge_encoder = torch.nn.Linear(2, emb_dim)
-        # self.edge_encoder = torch.nn.Linear(1, emb_dim)
 
     def forward(self, x, edge_index, edge_attr):
         x = self.linear(x)
@@ -112,12 +107,10 @@ class GNN_node(torch.nn.Module):
             else:
                 ValueError('Undefined GNN type called {}'.format(gnn_type))
 
-            self.batch_norms.append(torch.nn.BatchNorm1d(emb_dim))
+            self.batch_norms.append(torch.nn.LayerNorm(emb_dim))
 
-    # def forward(self, batched_data):
-    def forward(self, x, edge_index, edge_attr,node_depth, batch):
-
-        # x, edge_index, edge_attr, node_depth, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.node_depth, batched_data.batch
+    def forward(self, batched_data):
+        x, edge_index, edge_attr, node_depth, batch = batched_data.x, batched_data.edge_index, batched_data.edge_attr, batched_data.node_depth, batched_data.batch
 
         ### computing input node embedding
 
@@ -175,7 +168,6 @@ class GNN_node_Virtualnode(torch.nn.Module):
 
         ### set the initial virtual node embedding to 0.
         self.virtualnode_embedding = torch.nn.Embedding(1, emb_dim)
-        # self.virtualnode_embedding =torch.nn.Linear(8, emb_dim)
         torch.nn.init.constant_(self.virtualnode_embedding.weight.data, 0)
 
         ### List of GNNs
@@ -194,24 +186,25 @@ class GNN_node_Virtualnode(torch.nn.Module):
             else:
                 ValueError('Undefined GNN type called {}'.format(gnn_type))
 
-            self.batch_norms.append(torch.nn.BatchNorm1d(emb_dim))
+            self.batch_norms.append(torch.nn.LayerNorm(emb_dim))
 
         for layer in range(num_layer - 1):
             self.mlp_virtualnode_list.append(
-                torch.nn.Sequential(torch.nn.Linear(emb_dim, 2 * emb_dim), torch.nn.BatchNorm1d(2 * emb_dim),
-                                    torch.nn.ReLU(), \
-                                    torch.nn.Linear(2 * emb_dim, emb_dim), torch.nn.BatchNorm1d(emb_dim),
+                torch.nn.Sequential(torch.nn.Linear(emb_dim, 2 * emb_dim), torch.nn.LayerNorm(2 * emb_dim),
+                                    torch.nn.ReLU(),
+                                    torch.nn.Linear(2 * emb_dim, emb_dim), torch.nn.LayerNorm(emb_dim),
                                     torch.nn.ReLU()))
 
-    # def forward(self, batched_data,):
-    def forward(self, x, edge_index, edge_attr, batch ):
-        # x, edge_index, edge_attr, batch = batched_data.x.long(), batched_data.edge_index, batched_data.edge_attr.long(), batched_data.batch
+    def forward(self, batched_data):
+
+        x, edge_index, edge_attr, batch = batched_data.x.long(), batched_data.edge_index, batched_data.edge_attr.long(), batched_data.batch
+
         ### virtual node embeddings for graphs
         virtualnode_embedding = self.virtualnode_embedding(
             torch.zeros(batch[-1].item() + 1).to(edge_index.dtype).to(edge_index.device))
 
-        h_list = [self.node_encoder(x, edge_index)]
-        # h_list = [self.node_encoder(x)]
+        # h_list = [self.node_encoder(x, edge_index)]
+        h_list = [self.node_encoder(x)]
         for layer in range(self.num_layer):
             ### add message from virtual nodes to graph nodes
             h_list[layer] = h_list[layer] + virtualnode_embedding[batch]

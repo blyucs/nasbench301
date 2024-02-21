@@ -27,22 +27,39 @@ class STEFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
         # 反向传播时直接传递梯度
         return grad_output
+
 class Gumbel_Sample_Model(torch.nn.Module):
     def __init__(self, edge_attr):
         super(Gumbel_Sample_Model, self).__init__()
         self.log_alpha = Parameter(
             torch.zeros([edge_attr.size(0), len(OP_PRIMITIVES)]).normal_(1, 0.01),requires_grad=True
         )
-        self._temp = 1
-        self.indices = torch.arange(0, 8).repeat(58, 1)
 
-    def _get_categ_mask(self, log_alpha):
+        self._temp = 1
+        self.indices = torch.arange(0, len(OP_PRIMITIVES)).repeat(edge_attr.size(0), 1)
+
+        # self.normal_identity_s, self.normal_identity_e = 8, 12
+        # self.reduction_identity_s, self.reduction_identity_e = 20, 24
+        # self.graph_identity_s, self.graph_identity_e = 24, 29
+        #
+        # with torch.no_grad():
+        #     self.log_alpha[self.normal_identity_s:self.normal_identity_e, :].zero_()  # 设置前5行为0
+        #     self.log_alpha[self.reduction_identity_s:self.reduction_identity_e, :].zero_()  # 设置前5行为0
+        #     self.log_alpha[self.graph_identity_s:self.graph_identity_e, :].zero_()  # 设置前5行为0
+
+        self.mask = edge_attr == 0
+        with torch.no_grad():
+            for i, m in enumerate(self.mask):
+                if m:  # 如果这一行应该被置0
+                    self.log_alpha[i,:].zero_()
+
+    def _get_gumbel_dist(self, log_alpha):
         # log_alpha 2d one_hot 2d
         u = torch.zeros_like(log_alpha).uniform_()
         softmax = torch.nn.Softmax(-1)
         r = softmax((log_alpha + (-((-(u.log())).log()))) / self._temp)
         return r
-    def _get_indices(self, r):
+    def get_indices(self, r):
         # r_hard = (r == r.max(1, keepdim=True)[0]).float()  #  STE 能否解决 ？
         r_hard = torch.argmax(r, dim=1)
         # r_re = (r_hard - r).detach() + r
@@ -51,18 +68,32 @@ class Gumbel_Sample_Model(torch.nn.Module):
         r_re = (r_hard_one_hot - r).detach() + r
         return r_re
 
-    def _get_weights(self, log_alpha):
-        return self._get_indices(self._get_categ_mask(log_alpha))
-
     def forward(self):
-        one_hot = self._get_weights(self.log_alpha)
+        gumbel_distribution = self._get_gumbel_dist(self.log_alpha)
+        arch_indices = self.get_indices(gumbel_distribution)
         # re_tensor =  one_hot*self.indices
         # re = torch.sum(re_tensor, dim=1)
         # long_like_re = FloatToLongSTE.apply(re)
         # long_like_re = STEFunction.apply(one_hot)
         # return long_like_re
         # return re
-        return one_hot
+        return arch_indices
+
+    def get_cur_arch_attr(self):
+        # 使用argmax获取每一行最大值的索引
+        _, indices = self.log_alpha.max(dim=1)
+        # 将索引转换为对应的操作
+        return [OP_PRIMITIVES[index] for index in indices]
+
+    def get_cur_attr(self):
+        return torch.argmax(self.log_alpha, dim=1)
+
+    def zero_grad_identity_edge(self) -> None:
+        # 在梯度更新前手动将特定行的梯度设置为0
+        with torch.no_grad():
+            for i, m in enumerate(self.mask):
+                if m:  # 如果这一行应该被置0
+                    self.log_alpha.grad[i,:].zero_()
 
 class Search_Model(torch.nn.Module):
     def __init__(self, surrogate_model, Gumbel_Sample_Model):

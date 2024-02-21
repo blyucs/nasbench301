@@ -53,7 +53,7 @@
     {
       "name": "batch_size",
       "type": "constant",
-      "value": 51
+      "value": 1
     },
     {
       "name": "virtual_node",

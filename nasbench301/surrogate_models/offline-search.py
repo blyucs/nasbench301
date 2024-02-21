@@ -63,7 +63,7 @@ def train_surrogate_model(model, nasbench_data, model_config_path, data_config_p
     learning_rate = 0.02
     for step, graph_batch in enumerate(dataloader):
         random_batch = graph_batch
-        break
+        # break
     # mapping1 = Variable(random_batch.edge_attr.float(), requires_grad=True)
     # random_batch.edge_attr = mapping1.expand_as(random_batch.edge_attr)
     # random_batch.edge_attr = random_batch.edge_attr.float()
@@ -76,7 +76,8 @@ def train_surrogate_model(model, nasbench_data, model_config_path, data_config_p
 
     # load_dir = '/home/lvbo/00_code/nasbench301/nasbench301/nb_models_0.9/gnn_gin_v0.9/1/gnn_gin/20200910-200749-1'
     # load_dir = '/home/lvbo/00_code/nasbench301/nasbench301/gnn_gin/20240202-140310-6'
-    load_dir = '/home/lvbo/00_code/nasbench301/nasbench301/EXP/gnn_gin/train-20240205-110137-6'
+    # load_dir = '/home/lvbo/00_code/nasbench301/nasbench301/EXP/gnn_gin/train-20240205-110137-6'
+    load_dir = '/home/lvbo/00_code/nasbench301/nasbench301/EXP/gnn_gin/train-20240221-140058-6'   # new model
     surrogate_model.load(os.path.join(load_dir, 'surrogate_model.model'))
 
     # for param in surrogate_model.model.parameters():
@@ -93,15 +94,19 @@ def train_surrogate_model(model, nasbench_data, model_config_path, data_config_p
     optimizer_p2 = optim.Adam(search_model.sample_model.parameters(), lr=learning_rate)
     base_temp = 1.0
     min_temp = 0.03
-    epochs = 200
+    epochs = 500
     temp_scheduler = Temp_Scheduler(epochs, sample_model._temp, base_temp,
                                                temp_min=min_temp)
+    sample_model.get_cur_arch_attr()
+
     for i in range(epochs):
         optimizer_p2.zero_grad()
         pred = search_model(x, edge_index, batch)
         # pred = search_model.sample_model()
         loss = -pred.sum()
         loss.backward(retain_graph = True)
+        # 在梯度更新前手动将特定行的梯度设置为0
+        search_model.sample_model.zero_grad_identity_edge()
         optimizer_p2.step()
         search_model.sample_model._temp = temp_scheduler.step()
         # print(search_model.sample_model._temp)
